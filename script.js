@@ -18,6 +18,7 @@
   const btnUp = document.getElementById('btn-up');
   const btnDown = document.getElementById('btn-down');
   const btnEnd = document.getElementById('btn-end');
+  const btnNew = document.getElementById('btn-new');
   const roundResult = document.getElementById('round-result');
   const chartSection = document.getElementById('chart-section');
   const apiKeyInput = document.getElementById('api-key-input');
@@ -33,6 +34,8 @@
     currentIndex: -1, // latest shown index
     score: 0,
     inRound: false,
+    round: 0,
+    highScore: 0,
   };
 
   // Brand color gradients for popular tickers. Fallback uses hash-based HSL.
@@ -215,6 +218,8 @@
       infoPrice.textContent = '–';
     }
     infoScore.textContent = String(state.score);
+    document.getElementById('info-round').textContent = String(state.round);
+    document.getElementById('info-highscore').textContent = String(state.highScore);
   }
 
   function setButtonsEnabled(enabled) {
@@ -231,6 +236,20 @@
       if (key && key.trim()) {
         localStorage.setItem('av_api_key', key.trim());
       }
+    } catch (_) {}
+  }
+
+  // High score persistence (all-time for this browser)
+  function loadHighScore() {
+    try {
+      const v = localStorage.getItem('spg_high_score');
+      state.highScore = v ? Number(v) : 0;
+    } catch (_) { state.highScore = 0; }
+  }
+
+  function saveHighScore() {
+    try {
+      localStorage.setItem('spg_high_score', String(state.highScore));
     } catch (_) {}
   }
 
@@ -287,6 +306,7 @@
     state.currentIndex = startIndex; // current date is the start date
     state.score = 0;
     state.inRound = true;
+    state.round = 0;
 
     const windowData = state.dailySeries.slice(startIndex - 7, startIndex + 1);
     const labels = windowData.map(d => d.date);
@@ -311,6 +331,7 @@
     const correct = guessUp === wentUp;
     state.score += correct ? 1 : 0;
     state.currentIndex = nextIndex;
+    state.round += 1;
 
     // Update chart by appending the next point
     if (state.chart) {
@@ -320,12 +341,25 @@
     }
     updateInfoPanel();
     roundResult.textContent = correct ? 'Correct! +1 point' : 'Incorrect. +0 points';
+
+    // Check for game over at 5 rounds
+    if (state.round >= 5) {
+      setButtonsEnabled(false);
+      const beat = state.score > state.highScore;
+      if (beat) {
+        state.highScore = state.score;
+        saveHighScore();
+      }
+      roundResult.textContent = `Game Over after 5 rounds. Score: ${state.score}. ${beat ? 'New high score!' : 'High score remains ' + state.highScore}.`;
+      btnNew.hidden = false;
+    }
   }
 
   function resetGameUi() {
     setButtonsEnabled(false);
     infoScore.textContent = '0';
     roundResult.textContent = '';
+    btnNew.hidden = true;
   }
 
   // Event Listeners
@@ -351,6 +385,7 @@
       chartSection.hidden = false;
       infoSymbol.textContent = raw;
       applyBrandTheme(raw);
+      loadHighScore();
       initRound();
     } catch (err) {
       console.error(err);
@@ -372,6 +407,7 @@
   btnEnd.addEventListener('click', () => {
     setButtonsEnabled(false);
     roundResult.textContent = `Game ended. Final score: ${state.score}`;
+    btnNew.hidden = false;
   });
 
   // API key persistence
@@ -390,6 +426,17 @@
     errorMsg.textContent = 'API key saved locally.';
     apiKeyInput.value = '';
     apiKeyInput.placeholder = 'Saved key in use';
+  });
+
+  // New game: restart with current ticker and a fresh random start
+  btnNew.addEventListener('click', () => {
+    if (!state.symbol) return;
+    try {
+      initRound();
+      btnNew.hidden = true;
+    } catch (e) {
+      errorMsg.textContent = e.message || 'Failed to start a new game.';
+    }
   });
 })();
 
