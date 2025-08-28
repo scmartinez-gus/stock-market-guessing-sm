@@ -35,6 +35,73 @@
     inRound: false,
   };
 
+  // Brand color gradients for popular tickers. Fallback uses hash-based HSL.
+  const BRAND_GRADIENTS = {
+    'AAPL': ['#0d0d0d', '#1d1d1f'],
+    'MSFT': ['#0078d4', '#004578'],
+    'GOOG': ['#4285f4', '#0f9d58'],
+    'GOOGL': ['#4285f4', '#0f9d58'],
+    'AMZN': ['#ff9900', '#232f3e'],
+    'TSLA': ['#cc0000', '#111111'],
+    'META': ['#1877f2', '#1c1e21'],
+    'NFLX': ['#e50914', '#221f1f'],
+    'NVDA': ['#76b900', '#0f131a'],
+    'COF': ['#004977', '#d03027'],
+    'BAC': ['#0066b3', '#da001a'],
+    'JPM': ['#1261a0', '#0a2f51'],
+  };
+
+  function hashStringToInt(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = (h << 5) - h + str.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h);
+  }
+
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
+    return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+  }
+
+  function hexToRgba(hex, alpha) {
+    const clean = hex.replace('#', '');
+    const bigint = parseInt(clean, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function getGradientForTicker(symbol) {
+    const upper = symbol.toUpperCase();
+    if (BRAND_GRADIENTS[upper]) return BRAND_GRADIENTS[upper];
+    const base = hashStringToInt(upper) % 360;
+    const c1 = hslToHex(base, 70, 45);
+    const c2 = hslToHex((base + 30) % 360, 65, 25);
+    return [c1, c2];
+  }
+
+  function applyBrandTheme(symbol) {
+    const [c1, c2] = getGradientForTicker(symbol);
+    try {
+      document.documentElement.style.setProperty('--accent', c1);
+      document.body.style.background = `linear-gradient(135deg, ${c2} 0%, ${c1} 100%)`;
+      document.body.style.backgroundAttachment = 'fixed';
+      // Update chart theme if exists
+      if (state.chart) {
+        state.chart.data.datasets[0].borderColor = c1;
+        state.chart.data.datasets[0].backgroundColor = hexToRgba(c1, 0.15);
+        state.chart.update();
+      }
+    } catch (_) {}
+  }
+
   function formatUSD(num) {
     if (num == null || Number.isNaN(num)) return '–';
     return Number(num).toFixed(2);
@@ -100,6 +167,7 @@
       state.chart.destroy();
       state.chart = null;
     }
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4f8cff';
     state.chart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -107,8 +175,8 @@
         datasets: [{
           label: 'Close Price ($)',
           data,
-          borderColor: '#4f8cff',
-          backgroundColor: 'rgba(79, 140, 255, 0.15)',
+          borderColor: accent,
+          backgroundColor: hexToRgba(accent.startsWith('#') ? accent : '#4f8cff', 0.15),
           tension: 0.2,
           fill: true,
           pointRadius: 3,
@@ -282,6 +350,7 @@
       gameInfo.hidden = false;
       chartSection.hidden = false;
       infoSymbol.textContent = raw;
+      applyBrandTheme(raw);
       initRound();
     } catch (err) {
       console.error(err);
