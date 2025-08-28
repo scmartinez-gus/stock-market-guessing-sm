@@ -188,9 +188,16 @@
       return series;
     };
 
-    let series = await tryFetch('TIME_SERIES_DAILY_ADJUSTED');
-    if (!series || series.length === 0) {
-      series = await tryFetch('TIME_SERIES_DAILY');
+    let series = null;
+    try {
+      series = await tryFetch('TIME_SERIES_DAILY_ADJUSTED');
+    } catch (eAdjusted) {
+      try {
+        series = await tryFetch('TIME_SERIES_DAILY');
+      } catch (eDaily) {
+        // Surface the daily error if both fail
+        throw eDaily;
+      }
     }
     if (!series || series.length === 0) {
       throw new Error('No data available for this ticker.');
