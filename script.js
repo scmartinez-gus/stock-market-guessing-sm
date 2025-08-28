@@ -2,8 +2,9 @@
 // Uses Alpha Vantage REAL data (no demo). API: TIME_SERIES_DAILY_ADJUSTED
 
 (() => {
-  const API_KEY = 'PXMXESAGXIQDGE9K';
+  const DEFAULT_API_KEY = 'PXMXESAGXIQDGE9K';
   const BASE_URL = 'https://www.alphavantage.co/query';
+  const OUTPUT_SIZE = 'compact'; // last 100 trading days
 
   /** DOM Elements */
   const form = document.getElementById('ticker-form');
@@ -19,6 +20,8 @@
   const btnEnd = document.getElementById('btn-end');
   const roundResult = document.getElementById('round-result');
   const chartSection = document.getElementById('chart-section');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const saveKeyBtn = document.getElementById('save-key-btn');
   const canvas = document.getElementById('price-chart');
 
   /** Game State */
@@ -151,22 +154,45 @@
     btnDown.disabled = !enabled;
   }
 
+  function getApiKey() {
+    return localStorage.getItem('av_api_key') || DEFAULT_API_KEY;
+  }
+
+  function persistApiKey(key) {
+    try {
+      if (key && key.trim()) {
+        localStorage.setItem('av_api_key', key.trim());
+      }
+    } catch (_) {}
+  }
+
   async function fetchDailySeries(symbol) {
-    const url = `${BASE_URL}?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${encodeURIComponent(symbol)}&apikey=${API_KEY}&outputsize=full`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Network error: ${res.status}`);
+    // Try adjusted first, then fallback to non-adjusted if needed
+    const tryFetch = async (func) => {
+      const url = `${BASE_URL}?function=${func}&symbol=${encodeURIComponent(symbol)}&apikey=${getApiKey()}&outputsize=${OUTPUT_SIZE}&datatype=json`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Network error: ${res.status}`);
+      }
+      const json = await res.json();
+      if (json['Note']) {
+        throw new Error('API rate limit reached. Please wait and try again.');
+      }
+      if (json['Information']) {
+        throw new Error('Alpha Vantage rejected the request. If you see a premium or limit message, set your own API key below and try again.');
+      }
+      if (json['Error Message']) {
+        throw new Error('Invalid ticker symbol or API call.');
+      }
+      const series = parseDailySeriesFromResponse(json);
+      return series;
+    };
+
+    let series = await tryFetch('TIME_SERIES_DAILY_ADJUSTED');
+    if (!series || series.length === 0) {
+      series = await tryFetch('TIME_SERIES_DAILY');
     }
-    const json = await res.json();
-    if (json['Error Message']) {
-      throw new Error('Invalid ticker symbol.');
-    }
-    if (json['Note']) {
-      // API rate limit message
-      throw new Error('API rate limit reached. Please wait and try again.');
-    }
-    const series = parseDailySeriesFromResponse(json);
-    if (!series.length) {
+    if (!series || series.length === 0) {
       throw new Error('No data available for this ticker.');
     }
     return series;
@@ -270,6 +296,24 @@
   btnEnd.addEventListener('click', () => {
     setButtonsEnabled(false);
     roundResult.textContent = `Game ended. Final score: ${state.score}`;
+  });
+
+  // API key persistence
+  try {
+    const existing = localStorage.getItem('av_api_key');
+    if (existing) apiKeyInput.placeholder = 'Saved key in use';
+  } catch (_) {}
+
+  saveKeyBtn.addEventListener('click', () => {
+    const key = apiKeyInput.value.trim();
+    if (!key) {
+      errorMsg.textContent = 'Enter an API key before saving.';
+      return;
+    }
+    persistApiKey(key);
+    errorMsg.textContent = 'API key saved locally.';
+    apiKeyInput.value = '';
+    apiKeyInput.placeholder = 'Saved key in use';
   });
 })();
 

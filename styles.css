@@ -44,6 +44,7 @@ body {
 
 .ticker-form label { display: block; margin-bottom: 8px; font-weight: 600; }
 .ticker-row { display: flex; gap: 8px; }
+.key-row { margin-top: 8px; }
 
 input[type="text"] {
   flex: 1;
