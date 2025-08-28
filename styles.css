@@ -1,0 +1,89 @@
+:root {
+  --bg: #0e1116;
+  --panel: #151a22;
+  --text: #e6edf3;
+  --muted: #9aa4b2;
+  --accent: #4f8cff;
+  --success: #3fb950;
+  --danger: #f85149;
+  --border: #263041;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.5;
+}
+
+.app-header, .app-footer {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.app-header h1 { margin: 0 0 8px; font-size: 28px; }
+.app-header p { margin: 0; color: var(--muted); }
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.controls {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.ticker-form label { display: block; margin-bottom: 8px; font-weight: 600; }
+.ticker-row { display: flex; gap: 8px; }
+
+input[type="text"] {
+  flex: 1;
+  background: #0f131a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 12px 14px;
+}
+
+button { cursor: pointer; }
+
+button[type="submit"], .guess, .end {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-weight: 600;
+}
+
+button[disabled] { opacity: .6; cursor: not-allowed; }
+
+.hint { color: var(--muted); margin: 6px 0 0; }
+.error { color: var(--danger); min-height: 1.2em; }
+.result { min-height: 1.2em; font-weight: 600; }
+
+.game-info { margin-top: 16px; }
+.info-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.actions { display: flex; gap: 8px; margin-top: 8px; }
+.end { background: #374151; }
+
+.chart-section {
+  margin-top: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.app-footer p { color: var(--muted); }
+.app-footer a { color: var(--text); }
+
