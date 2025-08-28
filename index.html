@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stock Prediction Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <h1>Stock Prediction Game</h1>
+        <p>Pick a ticker, review recent history, then guess up or down day by day.</p>
+    </header>
+
+    <main class="container">
+        <section class="controls">
+            <form id="ticker-form" class="ticker-form">
+                <label for="ticker-input">Stock Ticker</label>
+                <div class="ticker-row">
+                    <input id="ticker-input" name="ticker" type="text" placeholder="e.g., MSFT or COF" autocomplete="off" required>
+                    <button id="start-btn" type="submit">Start Game</button>
+                </div>
+                <p id="form-hint" class="hint">Uses real market data via Alpha Vantage.</p>
+                <p id="error-msg" class="error" role="alert" aria-live="polite"></p>
+            </form>
+
+            <div class="game-info" id="game-info" hidden>
+                <div class="info-row">
+                    <div><strong>Ticker:</strong> <span id="info-symbol">–</span></div>
+                    <div><strong>Current date:</strong> <span id="info-date">–</span></div>
+                    <div><strong>Current price:</strong> $<span id="info-price">–</span></div>
+                    <div><strong>Score:</strong> <span id="info-score">0</span></div>
+                </div>
+                <div class="actions">
+                    <button id="btn-up" class="guess" disabled>Price Up</button>
+                    <button id="btn-down" class="guess" disabled>Price Down</button>
+                    <button id="btn-end" class="end">End Game</button>
+                </div>
+                <p id="round-result" class="result" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <section class="chart-section" id="chart-section" hidden>
+            <canvas id="price-chart" height="140"></canvas>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>Data by <a href="https://www.alphavantage.co/" target="_blank" rel="noreferrer noopener">Alpha Vantage</a>. Game for educational purposes only.</p>
+    </footer>
+
+    <script src="./script.js"></script>
+</body>
+</html>
+
