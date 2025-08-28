@@ -76,6 +76,7 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
 .info-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
 .actions { display: flex; gap: 8px; margin-top: 8px; }
 .end { background: #374151; }
+.actions .end#btn-new { background: #2563eb; }
 
 .chart-section {
   margin-top: 16px;

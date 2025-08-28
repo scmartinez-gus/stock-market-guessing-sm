@@ -18,6 +18,7 @@
   const btnUp = document.getElementById('btn-up');
   const btnDown = document.getElementById('btn-down');
   const btnEnd = document.getElementById('btn-end');
+  const btnNew = document.getElementById('btn-new');
   const roundResult = document.getElementById('round-result');
   const chartSection = document.getElementById('chart-section');
   const apiKeyInput = document.getElementById('api-key-input');
@@ -33,7 +34,76 @@
     currentIndex: -1, // latest shown index
     score: 0,
     inRound: false,
+    round: 0,
+    highScore: 0,
   };
+
+  // Brand color gradients for popular tickers. Fallback uses hash-based HSL.
+  const BRAND_GRADIENTS = {
+    'AAPL': ['#0d0d0d', '#1d1d1f'],
+    'MSFT': ['#0078d4', '#004578'],
+    'GOOG': ['#4285f4', '#0f9d58'],
+    'GOOGL': ['#4285f4', '#0f9d58'],
+    'AMZN': ['#ff9900', '#232f3e'],
+    'TSLA': ['#cc0000', '#111111'],
+    'META': ['#1877f2', '#1c1e21'],
+    'NFLX': ['#e50914', '#221f1f'],
+    'NVDA': ['#76b900', '#0f131a'],
+    'COF': ['#004977', '#d03027'],
+    'BAC': ['#0066b3', '#da001a'],
+    'JPM': ['#1261a0', '#0a2f51'],
+  };
+
+  function hashStringToInt(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = (h << 5) - h + str.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h);
+  }
+
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = x => Math.round(255 * x).toString(16).padStart(2, '0');
+    return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+  }
+
+  function hexToRgba(hex, alpha) {
+    const clean = hex.replace('#', '');
+    const bigint = parseInt(clean, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function getGradientForTicker(symbol) {
+    const upper = symbol.toUpperCase();
+    if (BRAND_GRADIENTS[upper]) return BRAND_GRADIENTS[upper];
+    const base = hashStringToInt(upper) % 360;
+    const c1 = hslToHex(base, 70, 45);
+    const c2 = hslToHex((base + 30) % 360, 65, 25);
+    return [c1, c2];
+  }
+
+  function applyBrandTheme(symbol) {
+    const [c1, c2] = getGradientForTicker(symbol);
+    try {
+      document.documentElement.style.setProperty('--accent', c1);
+      document.body.style.background = `linear-gradient(135deg, ${c2} 0%, ${c1} 100%)`;
+      document.body.style.backgroundAttachment = 'fixed';
+      // Update chart theme if exists
+      if (state.chart) {
+        state.chart.data.datasets[0].borderColor = c1;
+        state.chart.data.datasets[0].backgroundColor = hexToRgba(c1, 0.15);
+        state.chart.update();
+      }
+    } catch (_) {}
+  }
 
   function formatUSD(num) {
     if (num == null || Number.isNaN(num)) return '–';
@@ -100,6 +170,7 @@
       state.chart.destroy();
       state.chart = null;
     }
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4f8cff';
     state.chart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -107,8 +178,8 @@
         datasets: [{
           label: 'Close Price ($)',
           data,
-          borderColor: '#4f8cff',
-          backgroundColor: 'rgba(79, 140, 255, 0.15)',
+          borderColor: accent,
+          backgroundColor: hexToRgba(accent.startsWith('#') ? accent : '#4f8cff', 0.15),
           tension: 0.2,
           fill: true,
           pointRadius: 3,
@@ -147,6 +218,8 @@
       infoPrice.textContent = '–';
     }
     infoScore.textContent = String(state.score);
+    document.getElementById('info-round').textContent = String(state.round);
+    document.getElementById('info-highscore').textContent = String(state.highScore);
   }
 
   function setButtonsEnabled(enabled) {
@@ -163,6 +236,20 @@
       if (key && key.trim()) {
         localStorage.setItem('av_api_key', key.trim());
       }
+    } catch (_) {}
+  }
+
+  // High score persistence (all-time for this browser)
+  function loadHighScore() {
+    try {
+      const v = localStorage.getItem('spg_high_score');
+      state.highScore = v ? Number(v) : 0;
+    } catch (_) { state.highScore = 0; }
+  }
+
+  function saveHighScore() {
+    try {
+      localStorage.setItem('spg_high_score', String(state.highScore));
     } catch (_) {}
   }
 
@@ -219,6 +306,7 @@
     state.currentIndex = startIndex; // current date is the start date
     state.score = 0;
     state.inRound = true;
+    state.round = 0;
 
     const windowData = state.dailySeries.slice(startIndex - 7, startIndex + 1);
     const labels = windowData.map(d => d.date);
@@ -243,6 +331,7 @@
     const correct = guessUp === wentUp;
     state.score += correct ? 1 : 0;
     state.currentIndex = nextIndex;
+    state.round += 1;
 
     // Update chart by appending the next point
     if (state.chart) {
@@ -252,12 +341,25 @@
     }
     updateInfoPanel();
     roundResult.textContent = correct ? 'Correct! +1 point' : 'Incorrect. +0 points';
+
+    // Check for game over at 5 rounds
+    if (state.round >= 5) {
+      setButtonsEnabled(false);
+      const beat = state.score > state.highScore;
+      if (beat) {
+        state.highScore = state.score;
+        saveHighScore();
+      }
+      roundResult.textContent = `Game Over after 5 rounds. Score: ${state.score}. ${beat ? 'New high score!' : 'High score remains ' + state.highScore}.`;
+      btnNew.hidden = false;
+    }
   }
 
   function resetGameUi() {
     setButtonsEnabled(false);
     infoScore.textContent = '0';
     roundResult.textContent = '';
+    btnNew.hidden = true;
   }
 
   // Event Listeners
@@ -282,6 +384,8 @@
       gameInfo.hidden = false;
       chartSection.hidden = false;
       infoSymbol.textContent = raw;
+      applyBrandTheme(raw);
+      loadHighScore();
       initRound();
     } catch (err) {
       console.error(err);
@@ -303,6 +407,7 @@
   btnEnd.addEventListener('click', () => {
     setButtonsEnabled(false);
     roundResult.textContent = `Game ended. Final score: ${state.score}`;
+    btnNew.hidden = false;
   });
 
   // API key persistence
@@ -321,6 +426,17 @@
     errorMsg.textContent = 'API key saved locally.';
     apiKeyInput.value = '';
     apiKeyInput.placeholder = 'Saved key in use';
+  });
+
+  // New game: restart with current ticker and a fresh random start
+  btnNew.addEventListener('click', () => {
+    if (!state.symbol) return;
+    try {
+      initRound();
+      btnNew.hidden = true;
+    } catch (e) {
+      errorMsg.textContent = e.message || 'Failed to start a new game.';
+    }
   });
 })();
 
